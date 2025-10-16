@@ -1,0 +1,67 @@
+version: "3.9"
+
+services:
+  mongo:
+    image: mongo:7.0
+    container_name: musicplay-mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_DATABASE: MusicPlay
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+      - ./backend/MusicPlay.Api/Database/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.runCommand({ ping: 1 })"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  backend:
+    image: mcr.microsoft.com/dotnet/sdk:9.0-preview
+    container_name: musicplay-backend
+    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - ./backend/MusicPlay.Api:/app
+      - backend-uploads:/app/Uploads
+      - backend-nuget:/root/.nuget/packages
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:5174
+      MongoDb__ConnectionString: mongodb://mongo:27017
+      MongoDb__DatabaseName: MusicPlay
+      MongoDb__BucketName: audio-files
+      Storage__UploadPath: /app/Uploads
+      Email__FrontendBaseUrl: http://localhost:5173
+      Email__SendGrid__SenderEmail: no-reply@musicplay.local
+      Email__SendGrid__SenderName: MusicPlay
+    depends_on:
+      mongo:
+        condition: service_healthy
+    command: /bin/bash -c "dotnet restore && dotnet run --urls http://0.0.0.0:5174"
+    ports:
+      - "5174:5174"
+
+  frontend:
+    image: node:20
+    container_name: musicplay-frontend
+    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+      - frontend-node-modules:/app/node_modules
+    environment:
+      VITE_BACKEND_URL: http://backend:5174
+    depends_on:
+      - backend
+    command: /bin/bash -c "npm install && npm run dev -- --host 0.0.0.0 --port 5173"
+    ports:
+      - "5173:5173"
+
+volumes:
+  mongo-data:
+  backend-uploads:
+  backend-nuget:
+  frontend-node-modules:
