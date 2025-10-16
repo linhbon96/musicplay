@@ -1,0 +1,70 @@
+.card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  border-radius: 24px !important;
+  border: 1px solid rgba(255, 255, 255, 0.05) !important;
+  background: rgba(16, 11, 28, 0.85) !important;
+}
+
+.cover {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  border-radius: 20px;
+  overflow: hidden;
+  background: radial-gradient(circle, rgba(138, 79, 255, 0.45), rgba(14, 9, 24, 0.9));
+  display: grid;
+  place-items: center;
+}
+
+.cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.placeholder {
+  font-size: 64px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.badge {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(138, 79, 255, 1), rgba(50, 212, 255, 0.9));
+  color: #0e0918;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 10px;
+}
+
+.title {
+  margin-bottom: 8px !important;
+}
+
+.artist {
+  display: block;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 8px;
+}
+
+.description {
+  display: block;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.playAction {
+  color: #ffffff !important;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.playAction svg {
+  margin-right: 8px;
+}

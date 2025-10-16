@@ -1,0 +1,53 @@
+.container {
+  min-height: 100vh;
+  background: radial-gradient(circle at top, rgba(105, 48, 195, 0.35), rgba(14, 9, 24, 0.95));
+  position: relative;
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  background: rgba(14, 9, 24, 0.9);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding-inline: 24px;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.logoArea {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.content {
+  padding: 32px 48px 96px;
+  position: relative;
+  z-index: 2;
+}
+
+.footer {
+  text-align: center;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.6);
+  padding: 24px 16px 32px;
+  z-index: 2;
+}
+
+.backgroundGlow {
+  position: fixed;
+  inset: 0;
+  opacity: 0.5;
+  filter: blur(160px);
+  z-index: 0;
+  pointer-events: none;
+}
+
+@media (max-width: 768px) {
+  .content {
+    padding: 24px 16px 80px;
+  }
+}
