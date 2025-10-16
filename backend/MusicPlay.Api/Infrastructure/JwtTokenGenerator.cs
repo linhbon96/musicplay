@@ -25,8 +25,7 @@ public class JwtTokenGenerator
         {
             new(JwtRegisteredClaimNames.Sub, user.Id),
             new(JwtRegisteredClaimNames.UniqueName, user.Username),
-            new(JwtRegisteredClaimNames.Email, user.Email),
-            new("email_confirmed", user.EmailConfirmed ? "true" : "false")
+            new(JwtRegisteredClaimNames.Email, user.Email)
         };
 
         foreach (var role in user.Roles)

@@ -25,9 +25,6 @@ export interface TrackDto {
   featured: boolean;
   playCount: number;
   createdAt: string;
-  isApproved: boolean;
-  updatedAt?: string;
-  approvedAt?: string;
 }
 
 export interface PaginatedTracksResponse {
@@ -47,18 +44,6 @@ export const fetchTracks = async (page = 1, pageSize = 12) => {
     params: { page, pageSize }
   });
   return data;
-};
-
-export const fetchPersonalizedTracks = async () => {
-  try {
-    const { data } = await apiClient.get<TrackDto[]>("/tracks/personalized");
-    return data;
-  } catch (error) {
-    if (axios.isAxiosError(error) && error.response?.status === 401) {
-      return [];
-    }
-    throw error;
-  }
 };
 
 export interface PlaylistDto {
@@ -82,7 +67,6 @@ export interface AuthResponse {
     username: string;
     email: string;
     roles: string[];
-    emailConfirmed: boolean;
   };
 }
 
@@ -104,55 +88,9 @@ export const register = async (payload: {
   return data;
 };
 
-export const confirmEmail = async (email: string, token: string) => {
-  const { data } = await apiClient.post<AuthResponse>("/auth/confirm", { email, token });
-  localStorage.setItem("musicplay.token", data.token);
-  return data;
-};
-
 export const uploadTrack = async (form: FormData) => {
   const { data } = await apiClient.post("/tracks/upload", form, {
     headers: { "Content-Type": "multipart/form-data" }
   });
   return data;
-};
-
-export interface AdminOverviewResponse {
-  totals: {
-    tracks: number;
-    pendingTracks: number;
-    users: number;
-    totalPlays: number;
-  };
-  uploads: { date: string; count: number }[];
-  pendingTracks: AdminTrackItem[];
-}
-
-export interface AdminTrackItem {
-  id: string;
-  title: string;
-  artistName: string;
-  genre?: string;
-  tags: string[];
-  duration: number;
-  isApproved: boolean;
-  createdAt: string;
-  uploadedBy: string;
-  playCount: number;
-}
-
-export const fetchAdminOverview = async () => {
-  try {
-    const { data } = await apiClient.get<AdminOverviewResponse>("/admin/overview");
-    return data;
-  } catch (error) {
-    if (axios.isAxiosError(error) && error.response?.status === 401) {
-      return undefined;
-    }
-    throw error;
-  }
-};
-
-export const approveTrack = async (trackId: string) => {
-  await apiClient.post(`/admin/tracks/${trackId}/approve`);
 };

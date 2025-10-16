@@ -1,11 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import {
-  fetchFeaturedTracks,
-  fetchTracks,
-  fetchFeaturedPlaylists,
-  fetchPersonalizedTracks,
-  fetchAdminOverview
-} from "../services/apiClient";
+import { fetchFeaturedTracks, fetchTracks, fetchFeaturedPlaylists } from "../services/apiClient";
 
 export const useFeaturedTracks = () =>
   useQuery({
@@ -23,16 +17,4 @@ export const useFeaturedPlaylists = () =>
   useQuery({
     queryKey: ["playlists", "featured"],
     queryFn: fetchFeaturedPlaylists
-  });
-
-export const usePersonalizedTracks = () =>
-  useQuery({
-    queryKey: ["tracks", "personalized"],
-    queryFn: fetchPersonalizedTracks
-  });
-
-export const useAdminOverview = () =>
-  useQuery({
-    queryKey: ["admin", "overview"],
-    queryFn: fetchAdminOverview
   });

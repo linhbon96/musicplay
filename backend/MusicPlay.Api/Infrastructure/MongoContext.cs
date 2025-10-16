@@ -12,7 +12,6 @@ public class MongoContext
     public IMongoCollection<ApplicationUser> Users => Database.GetCollection<ApplicationUser>("users");
     public IMongoCollection<Track> Tracks => Database.GetCollection<Track>("tracks");
     public IMongoCollection<Playlist> Playlists => Database.GetCollection<Playlist>("playlists");
-    public IMongoCollection<ListeningHistory> ListeningHistories => Database.GetCollection<ListeningHistory>("listeningHistory");
 
     public MongoContext(IOptions<MongoOptions> options)
     {

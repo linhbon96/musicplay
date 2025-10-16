@@ -12,8 +12,5 @@ public record TrackResponse(
     string? CoverUrl,
     bool Featured,
     long PlayCount,
-    DateTime CreatedAt,
-    bool IsApproved,
-    DateTime? UpdatedAt,
-    DateTime? ApprovedAt
+    DateTime CreatedAt
 );

@@ -1,14 +1,13 @@
 using System.Net;
 using System.Security.Claims;
-using System.Linq;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using MongoDB.Bson;
 using MongoDB.Driver;
 using MusicPlay.Api.Configuration;
 using MusicPlay.Api.DTOs;
-using MusicPlay.Api.DTOs.Admin;
 using MusicPlay.Api.Infrastructure;
 using MusicPlay.Api.Models;
 using MusicPlay.Api.Services;
@@ -18,7 +17,6 @@ using System.Text;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.Configure<MongoOptions>(builder.Configuration.GetSection("MongoDb"));
-builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection("Email"));
 builder.Services.AddSingleton(sp =>
 {
     var options = new StorageOptions();
@@ -33,9 +31,7 @@ builder.Services.AddSingleton(jwtOptions);
 builder.Services.AddSingleton<MongoContext>();
 builder.Services.AddSingleton<AuthService>();
 builder.Services.AddSingleton<TrackService>();
-builder.Services.AddSingleton<RecommendationService>();
 builder.Services.AddSingleton<JwtTokenGenerator>();
-builder.Services.AddSingleton<EmailService>();
 
 builder.Services.AddAuthentication(options =>
 {
@@ -109,41 +105,14 @@ await SeedDataAsync(mongoContext, builder.Configuration);
 app.MapGet("/api/health", () => Results.Ok(new { Status = "Healthy", Timestamp = DateTime.UtcNow }))
     .WithName("Health");
 
-app.MapPost("/api/auth/register", async (
-    RegisterRequest request,
-    AuthService authService,
-    JwtTokenGenerator tokenGenerator,
-    EmailService emailService,
-    CancellationToken cancellationToken) =>
+app.MapPost("/api/auth/register", async (RegisterRequest request, AuthService authService, JwtTokenGenerator tokenGenerator, CancellationToken cancellationToken) =>
 {
     var user = await authService.RegisterAsync(request, isAdmin: false, cancellationToken);
-
-    if (!user.EmailConfirmed && !string.IsNullOrWhiteSpace(user.EmailConfirmationToken))
-    {
-        var confirmationLink = emailService.BuildConfirmationLink(user);
-        _ = emailService.SendEmailConfirmationAsync(user, confirmationLink, cancellationToken);
-    }
-
     var token = tokenGenerator.GenerateToken(user);
-    return Results.Ok(new
-    {
-        Token = token,
-        User = new
-        {
-            user.Id,
-            user.Username,
-            user.Email,
-            user.Roles,
-            user.EmailConfirmed
-        }
-    });
+    return Results.Ok(new { Token = token, User = new { user.Id, user.Username, user.Email, user.Roles } });
 }).WithName("Register");
 
-app.MapPost("/api/auth/login", async (
-    LoginRequest request,
-    AuthService authService,
-    JwtTokenGenerator tokenGenerator,
-    CancellationToken cancellationToken) =>
+app.MapPost("/api/auth/login", async (LoginRequest request, AuthService authService, JwtTokenGenerator tokenGenerator, CancellationToken cancellationToken) =>
 {
     var user = await authService.LoginAsync(request, cancellationToken);
     if (user is null)
@@ -152,51 +121,10 @@ app.MapPost("/api/auth/login", async (
     }
 
     var token = tokenGenerator.GenerateToken(user);
-    return Results.Ok(new
-    {
-        Token = token,
-        User = new
-        {
-            user.Id,
-            user.Username,
-            user.Email,
-            user.Roles,
-            user.EmailConfirmed
-        }
-    });
+    return Results.Ok(new { Token = token, User = new { user.Id, user.Username, user.Email, user.Roles } });
 }).WithName("Login");
 
-app.MapPost("/api/auth/confirm", async (
-    ConfirmEmailRequest request,
-    AuthService authService,
-    JwtTokenGenerator tokenGenerator,
-    CancellationToken cancellationToken) =>
-{
-    var user = await authService.ConfirmEmailAsync(request.Email, request.Token, cancellationToken);
-    if (user is null)
-    {
-        return Results.BadRequest(new { Message = "Mã xác nhận không hợp lệ" });
-    }
-
-    var token = tokenGenerator.GenerateToken(user);
-    return Results.Ok(new
-    {
-        Token = token,
-        User = new
-        {
-            user.Id,
-            user.Username,
-            user.Email,
-            user.Roles,
-            user.EmailConfirmed
-        }
-    });
-}).WithName("ConfirmEmail");
-
-app.MapGet("/api/auth/me", async (
-    ClaimsPrincipal principal,
-    MongoContext context,
-    CancellationToken cancellationToken) =>
+app.MapGet("/api/auth/me", async (ClaimsPrincipal principal, MongoContext context, CancellationToken cancellationToken) =>
 {
     var userId = principal.FindFirstValue(ClaimTypes.NameIdentifier) ?? principal.FindFirstValue(ClaimTypes.Name);
     if (string.IsNullOrEmpty(userId))
@@ -210,25 +138,10 @@ app.MapGet("/api/auth/me", async (
         return Results.NotFound();
     }
 
-    return Results.Ok(new
-    {
-        user.Id,
-        user.Username,
-        user.Email,
-        user.Roles,
-        user.DisplayName,
-        user.Bio,
-        user.Links,
-        user.EmailConfirmed,
-        user.LastLoginAt
-    });
+    return Results.Ok(new { user.Id, user.Username, user.Email, user.Roles, user.DisplayName, user.Bio, user.Links });
 }).RequireAuthorization().WithName("Me");
 
-app.MapPost("/api/tracks/upload", async (
-    HttpRequest request,
-    TrackUploadRequest metadata,
-    TrackService trackService,
-    CancellationToken cancellationToken) =>
+app.MapPost("/api/tracks/upload", async (HttpRequest request, TrackUploadRequest metadata, AuthService authService, TrackService trackService, CancellationToken cancellationToken) =>
 {
     if (!request.HasFormContentType)
     {
@@ -242,46 +155,20 @@ app.MapPost("/api/tracks/upload", async (
         return Results.BadRequest("Audio file is required.");
     }
 
-    metadata.Title = form["title"];
-    metadata.ArtistName = form["artistName"];
-    metadata.Description = form["description"];
-    metadata.Genre = form["genre"];
-
-    var tagsValue = form["tags"].ToString();
-    if (!string.IsNullOrWhiteSpace(tagsValue))
-    {
-        metadata.Tags = tagsValue
-            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .ToList();
-    }
-
-    if (double.TryParse(form["duration"], out var parsedDuration))
-    {
-        metadata.Duration = parsedDuration;
-    }
-
     var userId = request.HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "guest";
-    var isAdmin = request.HttpContext.User.IsInRole("Admin");
-
     await using var stream = file.OpenReadStream();
-    var track = await trackService.CreateAsync(metadata, stream, file.FileName, userId, isAdmin, cancellationToken);
-    return Results.Created($"/api/tracks/{track.Id}", new { track.Id, track.Title, track.IsApproved });
+    var track = await trackService.CreateAsync(metadata, stream, file.FileName, userId, cancellationToken);
+    return Results.Created($"/api/tracks/{track.Id}", new { track.Id, track.Title });
 }).RequireAuthorization().WithName("UploadTrack");
 
-app.MapGet("/api/tracks", async (
-    int page,
-    int pageSize,
-    MongoContext context,
-    TrackService trackService,
-    CancellationToken cancellationToken) =>
+app.MapGet("/api/tracks", async (int page, int pageSize, MongoContext context, TrackService trackService, CancellationToken cancellationToken) =>
 {
     page = page <= 0 ? 1 : page;
     pageSize = pageSize is <= 0 or > 50 ? 12 : pageSize;
 
-    var approvedFilter = Builders<Track>.Filter.Eq(t => t.IsApproved, true);
-    var total = await context.Tracks.CountDocumentsAsync(approvedFilter, cancellationToken: cancellationToken);
+    var total = await context.Tracks.CountDocumentsAsync(FilterDefinition<Track>.Empty, cancellationToken: cancellationToken);
     var tracks = await context.Tracks
-        .Find(approvedFilter)
+        .Find(FilterDefinition<Track>.Empty)
         .SortByDescending(t => t.CreatedAt)
         .Skip((page - 1) * pageSize)
         .Limit(pageSize)
@@ -299,18 +186,13 @@ app.MapGet("/api/tracks", async (
         track.CoverUrl,
         track.Featured,
         track.PlayCount,
-        track.CreatedAt,
-        track.IsApproved,
-        track.UpdatedAt,
-        track.ApprovedAt
+        track.CreatedAt
     ));
 
     return Results.Ok(new { Total = total, Page = page, PageSize = pageSize, Items = payload });
 }).WithName("ListTracks");
 
-app.MapGet("/api/tracks/featured", async (
-    TrackService trackService,
-    CancellationToken cancellationToken) =>
+app.MapGet("/api/tracks/featured", async (TrackService trackService, CancellationToken cancellationToken) =>
 {
     var tracks = await trackService.GetFeaturedAsync(6, cancellationToken);
     return Results.Ok(tracks.Select(track => new TrackResponse(
@@ -325,65 +207,16 @@ app.MapGet("/api/tracks/featured", async (
         track.CoverUrl,
         track.Featured,
         track.PlayCount,
-        track.CreatedAt,
-        track.IsApproved,
-        track.UpdatedAt,
-        track.ApprovedAt
+        track.CreatedAt
     )));
 }).WithName("FeaturedTracks");
 
-app.MapGet("/api/tracks/personalized", async (
-    ClaimsPrincipal principal,
-    RecommendationService recommendationService,
-    TrackService trackService,
-    CancellationToken cancellationToken) =>
-{
-    var userId = principal.FindFirstValue(ClaimTypes.NameIdentifier);
-    if (string.IsNullOrWhiteSpace(userId))
-    {
-        return Results.Unauthorized();
-    }
-
-    var tracks = await recommendationService.GetPersonalizedRecommendationsAsync(userId, 12, cancellationToken);
-    var payload = tracks.Select(track => new TrackResponse(
-        track.Id,
-        track.Title,
-        track.ArtistName,
-        track.Description,
-        track.Genre,
-        track.Tags,
-        track.Duration,
-        trackService.BuildStreamUrl(track),
-        track.CoverUrl,
-        track.Featured,
-        track.PlayCount,
-        track.CreatedAt,
-        track.IsApproved,
-        track.UpdatedAt,
-        track.ApprovedAt
-    ));
-
-    return Results.Ok(payload);
-}).RequireAuthorization().WithName("PersonalizedTracks");
-
-app.MapGet("/api/tracks/{id}/stream", async (
-    string id,
-    HttpRequest request,
-    HttpResponse response,
-    TrackService trackService,
-    CancellationToken cancellationToken) =>
+app.MapGet("/api/tracks/{id}/stream", async (string id, HttpRequest request, HttpResponse response, TrackService trackService, CancellationToken cancellationToken) =>
 {
     var track = await trackService.GetByIdAsync(id, cancellationToken);
     if (track is null)
     {
         return Results.NotFound();
-    }
-
-    var userId = request.HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
-    var isAdmin = request.HttpContext.User.IsInRole("Admin");
-    if (!track.IsApproved && !isAdmin && !string.Equals(track.UploadedBy, userId, StringComparison.Ordinal))
-    {
-        return Results.Forbid();
     }
 
     var fileInfo = new FileInfo(track.FilePath);
@@ -396,8 +229,6 @@ app.MapGet("/api/tracks/{id}/stream", async (
     {
         contentType = "audio/mpeg";
     }
-
-    await trackService.RecordPlayAsync(track, userId, cancellationToken);
 
     var stream = trackService.OpenRead(fileInfo.FullName);
     var rangeHeader = request.Headers.Range.ToString();
@@ -427,10 +258,7 @@ app.MapGet("/api/tracks/{id}/stream", async (
     return Results.File(stream, contentType, enableRangeProcessing: true);
 }).WithName("StreamTrack");
 
-app.MapGet("/api/playlists/featured", async (
-    MongoContext context,
-    TrackService trackService,
-    CancellationToken cancellationToken) =>
+app.MapGet("/api/playlists/featured", async (MongoContext context, TrackService trackService, CancellationToken cancellationToken) =>
 {
     var playlists = await context.Playlists
         .Find(p => p.IsPublic)
@@ -439,7 +267,7 @@ app.MapGet("/api/playlists/featured", async (
         .ToListAsync(cancellationToken);
 
     var trackDictionary = (await context.Tracks
-        .Find(t => t.IsApproved)
+        .Find(FilterDefinition<Track>.Empty)
         .ToListAsync(cancellationToken))
         .ToDictionary(t => t.Id, t => t);
 
@@ -462,10 +290,7 @@ app.MapGet("/api/playlists/featured", async (
                 track.CoverUrl,
                 track.Featured,
                 track.PlayCount,
-                track.CreatedAt,
-                track.IsApproved,
-                track.UpdatedAt,
-                track.ApprovedAt
+                track.CreatedAt
             ))
             .ToList(),
         playlist.CoverUrl,
@@ -475,84 +300,10 @@ app.MapGet("/api/playlists/featured", async (
     return Results.Ok(payload);
 }).WithName("FeaturedPlaylists");
 
-app.MapGet("/api/admin/overview", async (
-    MongoContext context,
-    CancellationToken cancellationToken) =>
-{
-    var approvedFilter = Builders<Track>.Filter.Empty;
-    var tracksTask = context.Tracks.CountDocumentsAsync(approvedFilter, cancellationToken: cancellationToken);
-    var pendingTask = context.Tracks.CountDocumentsAsync(t => !t.IsApproved, cancellationToken: cancellationToken);
-    var usersTask = context.Users.CountDocumentsAsync(Builders<ApplicationUser>.Filter.Empty, cancellationToken: cancellationToken);
-
-    var totalPlaysAggregation = await context.Tracks.Aggregate()
-        .Group(track => 1, group => new { Total = group.Sum(t => t.PlayCount) })
-        .FirstOrDefaultAsync(cancellationToken);
-
-    var sevenDaysAgo = DateTime.UtcNow.Date.AddDays(-6);
-    var recentUploads = await context.Tracks
-        .Find(t => t.CreatedAt >= sevenDaysAgo)
-        .ToListAsync(cancellationToken);
-
-    var dailyMetrics = Enumerable.Range(0, 7)
-        .Select(offset => sevenDaysAgo.AddDays(offset))
-        .Select(date =>
-        {
-            var match = recentUploads.Where(x => x.CreatedAt.Date == date).ToList();
-            return new DailyUploadMetric(date, match.Count);
-        })
-        .ToList();
-
-    var pendingTracks = await context.Tracks
-        .Find(t => !t.IsApproved)
-        .SortBy(t => t.CreatedAt)
-        .Limit(50)
-        .ToListAsync(cancellationToken);
-
-    await Task.WhenAll(tracksTask, pendingTask, usersTask);
-
-    var overview = new AdminOverviewResponse(
-        new AdminOverviewTotals(
-            await tracksTask,
-            await pendingTask,
-            await usersTask,
-            totalPlaysAggregation?.Total ?? 0
-        ),
-        dailyMetrics,
-        pendingTracks.Select(track => new AdminTrackItem(
-            track.Id,
-            track.Title,
-            track.ArtistName,
-            track.Genre,
-            track.Tags,
-            track.Duration,
-            track.IsApproved,
-            track.CreatedAt,
-            track.UploadedBy,
-            track.PlayCount
-        )).ToList()
-    );
-
-    return Results.Ok(overview);
-}).RequireAuthorization("AdminOnly").WithName("AdminOverview");
-
-app.MapPost("/api/admin/tracks/{id}/approve", async (
-    string id,
-    ClaimsPrincipal principal,
-    TrackService trackService,
-    CancellationToken cancellationToken) =>
-{
-    var adminId = principal.FindFirstValue(ClaimTypes.NameIdentifier) ?? "admin";
-    var approved = await trackService.ApproveTrackAsync(id, adminId, cancellationToken);
-    return approved ? Results.NoContent() : Results.NotFound();
-}).RequireAuthorization("AdminOnly").WithName("ApproveTrack");
-
-app.MapGet("/api/seo/sitemap", async (
-    MongoContext context,
-    TrackService trackService,
-    CancellationToken cancellationToken) =>
+app.MapGet("/api/seo/sitemap", async (MongoContext context, TrackService trackService, CancellationToken cancellationToken) =>
 {
     var baseUrl = "https://musicplay.local";
-    var tracks = await context.Tracks.Find(t => t.IsApproved).ToListAsync(cancellationToken);
+    var tracks = await context.Tracks.Find(FilterDefinition<Track>.Empty).ToListAsync(cancellationToken);
     var urls = new List<object>
     {
         new { loc = baseUrl, changefreq = "daily", priority = 1.0 },
@@ -573,8 +324,8 @@ app.Run();
 
 static async Task SeedDataAsync(MongoContext context, IConfiguration configuration)
 {
-    var adminHash = configuration.GetValue<string>("Admin:SeedPasswordHash") ?? string.Empty;
-    var userHash = configuration.GetValue<string>("User:SeedPasswordHash") ?? string.Empty;
+    var adminHash = configuration.GetValue<string>("Admin:SeedPasswordHash") ?? "";
+    var userHash = configuration.GetValue<string>("User:SeedPasswordHash") ?? "";
 
     var usersCollection = context.Users;
     if (!await usersCollection.Find(u => u.Username == "admin").AnyAsync())
@@ -585,11 +336,7 @@ static async Task SeedDataAsync(MongoContext context, IConfiguration configurati
             Email = "admin@musicplay.local",
             PasswordHash = adminHash,
             Roles = new List<string> { "Admin", "User" },
-            DisplayName = "MusicPlay Admin",
-            EmailConfirmed = true,
-            EmailConfirmationToken = null,
-            CreatedAt = DateTime.UtcNow,
-            LastLoginAt = DateTime.UtcNow
+            DisplayName = "MusicPlay Admin"
         });
     }
 
@@ -601,11 +348,7 @@ static async Task SeedDataAsync(MongoContext context, IConfiguration configurati
             Email = "user@musicplay.local",
             PasswordHash = userHash,
             Roles = new List<string> { "User" },
-            DisplayName = "MusicPlay Fan",
-            EmailConfirmed = true,
-            EmailConfirmationToken = null,
-            CreatedAt = DateTime.UtcNow,
-            LastLoginAt = null
+            DisplayName = "MusicPlay Fan"
         });
     }
 
@@ -618,8 +361,7 @@ static async Task SeedDataAsync(MongoContext context, IConfiguration configurati
             TrackIds = new List<string>(),
             CoverUrl = "/assets/playlists/new-voices.jpg",
             OwnerId = "admin",
-            IsPublic = true,
-            UpdatedAt = DateTime.UtcNow
+            IsPublic = true
         });
     }
 }

@@ -39,21 +39,9 @@ public class Track
     [BsonElement("createdAt")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-    [BsonElement("updatedAt")]
-    public DateTime? UpdatedAt { get; set; }
-
     [BsonElement("featured")]
     public bool Featured { get; set; }
 
     [BsonElement("playCount")]
     public long PlayCount { get; set; }
-
-    [BsonElement("isApproved")]
-    public bool IsApproved { get; set; }
-
-    [BsonElement("approvedBy")]
-    public string? ApprovedBy { get; set; }
-
-    [BsonElement("approvedAt")]
-    public DateTime? ApprovedAt { get; set; }
 }

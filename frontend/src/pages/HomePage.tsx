@@ -1,19 +1,14 @@
 import { Helmet } from "react-helmet-async";
-import { Row, Col, Skeleton, Empty, Typography, Card } from "antd";
+import { Row, Col, Skeleton, Empty } from "antd";
 import { HeroBanner } from "../components/HeroBanner";
 import { StatsBar } from "../components/StatsBar";
 import { TrackCard } from "../components/TrackCard";
 import { PlaylistShowcase } from "../components/PlaylistShowcase";
-import { useFeaturedTracks, useFeaturedPlaylists, usePersonalizedTracks } from "../hooks/useTracks";
-
-const { Text } = Typography;
+import { useFeaturedTracks, useFeaturedPlaylists } from "../hooks/useTracks";
 
 export const HomePage = () => {
   const { data: featuredTracks, isLoading: tracksLoading } = useFeaturedTracks();
   const { data: playlists, isLoading: playlistsLoading } = useFeaturedPlaylists();
-  const { data: personalizedTracks, isLoading: personalizedLoading } = usePersonalizedTracks();
-
-  const showPersonalized = personalizedTracks && personalizedTracks.length > 0;
 
   return (
     <>
@@ -26,47 +21,6 @@ export const HomePage = () => {
       </Helmet>
       <HeroBanner />
       <StatsBar />
-
-      {showPersonalized && (
-        <section style={{ marginBottom: 48 }}>
-          <h2 className="section-title">Gợi ý dành riêng cho bạn</h2>
-          {personalizedLoading ? (
-            <Skeleton active paragraph={{ rows: 6 }} />
-          ) : (
-            <Row gutter={[24, 24]}>
-              {personalizedTracks!.map((track) => (
-                <Col xs={24} sm={12} md={8} lg={6} key={track.id}>
-                  <TrackCard
-                    title={track.title}
-                    artistName={track.artistName}
-                    description={track.description}
-                    streamUrl={track.streamUrl}
-                    coverUrl={track.coverUrl}
-                    featured={track.featured}
-                  />
-                </Col>
-              ))}
-            </Row>
-          )}
-        </section>
-      )}
-
-      {!showPersonalized && personalizedLoading && (
-        <section style={{ marginBottom: 48 }}>
-          <h2 className="section-title">Gợi ý dành riêng cho bạn</h2>
-          <Skeleton active paragraph={{ rows: 6 }} />
-        </section>
-      )}
-
-      {!showPersonalized && !personalizedLoading && (
-        <section style={{ marginBottom: 48 }}>
-          <Card>
-            <Text>
-              Đăng nhập và nghe một vài track để MusicPlay học sở thích của bạn và đưa ra gợi ý phù hợp hơn.
-            </Text>
-          </Card>
-        </section>
-      )}
 
       <section style={{ marginBottom: 48 }}>
         <h2 className="section-title">Track nổi bật tuần này</h2>

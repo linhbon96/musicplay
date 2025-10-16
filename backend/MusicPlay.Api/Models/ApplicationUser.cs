@@ -35,13 +35,4 @@ public class ApplicationUser
 
     [BsonElement("links")]
     public Dictionary<string, string> Links { get; set; } = new();
-
-    [BsonElement("emailConfirmed")]
-    public bool EmailConfirmed { get; set; }
-
-    [BsonElement("emailConfirmationToken")]
-    public string? EmailConfirmationToken { get; set; }
-
-    [BsonElement("lastLoginAt")]
-    public DateTime? LastLoginAt { get; set; }
 }
