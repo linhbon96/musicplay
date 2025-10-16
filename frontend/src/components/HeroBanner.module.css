@@ -1,0 +1,89 @@
+.hero {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 48px;
+  padding: 48px;
+  background: rgba(18, 12, 32, 0.72);
+  border-radius: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  position: relative;
+  overflow: hidden;
+}
+
+.copy {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.title {
+  font-size: clamp(36px, 5vw, 56px) !important;
+  line-height: 1.1 !important;
+}
+
+.title span {
+  color: #32d4ff;
+}
+
+.subtitle {
+  font-size: 18px;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.primaryAction a,
+.actions button a {
+  color: inherit;
+}
+
+.meta {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.25em;
+}
+
+.visual {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.waveform {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 220px;
+}
+
+.waveform span {
+  width: 8px;
+  background: linear-gradient(180deg, rgba(247, 37, 133, 0.8), rgba(138, 79, 255, 1));
+  border-radius: 999px;
+  height: 24px;
+  animation: pulse 2.8s ease-in-out infinite;
+  opacity: 0.8;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    transform: scaleY(0.4);
+    opacity: 0.3;
+  }
+  50% {
+    transform: scaleY(1.4);
+    opacity: 1;
+  }
+}
+
+@media (max-width: 768px) {
+  .hero {
+    padding: 32px 24px;
+  }
+}

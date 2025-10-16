@@ -1,0 +1,17 @@
+.row {
+  padding: 24px;
+  background: rgba(16, 11, 28, 0.75);
+  border-radius: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  margin-bottom: 32px;
+}
+
+:global(.ant-statistic-title) {
+  color: rgba(255, 255, 255, 0.6);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+:global(.ant-statistic-content) {
+  font-weight: 700;
+}
