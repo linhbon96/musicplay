@@ -1,0 +1,35 @@
+.wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.iconWrap {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(145deg, rgba(138, 79, 255, 1), rgba(247, 37, 133, 0.9));
+  display: grid;
+  place-items: center;
+  box-shadow: 0 12px 32px rgba(247, 37, 133, 0.45);
+}
+
+.icon {
+  font-size: 22px;
+  color: #0e0918;
+}
+
+.brand {
+  display: block;
+  font-weight: 700;
+  font-size: 20px;
+  letter-spacing: 0.04em;
+}
+
+.tagline {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.32em;
+  color: rgba(255, 255, 255, 0.6);
+}
